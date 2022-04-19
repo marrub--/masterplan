@@ -123,8 +123,54 @@ type Task struct {
 	Locked          bool
 }
 
-func NewTask(board *Board) *Task {
+func ParseTaskType(taskData gjson.Result) (taskType int, ok bool) {
+	ttyp := taskData.Get(`TaskType\.CurrentChoice`)
+	if ttyp.Type == gjson.Number {
+		switch int(ttyp.Int()) {
+		case 0:  ok = true; taskType = TASK_TYPE_BOOLEAN
+		case 1:  ok = true; taskType = TASK_TYPE_PROGRESSION
+		case 2:  ok = true; taskType = TASK_TYPE_NOTE
+		case 3:  ok = true; taskType = TASK_TYPE_IMAGE
+		case 5:  ok = true; taskType = TASK_TYPE_TIMER
+		case 6:  ok = true; taskType = TASK_TYPE_LINE
+		case 7:  ok = true; taskType = TASK_TYPE_MAP
+		case 8:  ok = true; taskType = TASK_TYPE_WHITEBOARD
+		case 9:  ok = true; taskType = TASK_TYPE_TABLE
+		default: ok = false
+		}
+	} else if ttyp.Type == gjson.String {
+		switch ttyp.String() {
+		case "Bool":        ok = true; taskType = TASK_TYPE_BOOLEAN
+		case "Progression": ok = true; taskType = TASK_TYPE_PROGRESSION
+		case "Note":        ok = true; taskType = TASK_TYPE_NOTE
+		case "Image":       ok = true; taskType = TASK_TYPE_IMAGE
+		case "Timer":       ok = true; taskType = TASK_TYPE_TIMER
+		case "Line":        ok = true; taskType = TASK_TYPE_LINE
+		case "Map":         ok = true; taskType = TASK_TYPE_MAP
+		case "Whiteboard":  ok = true; taskType = TASK_TYPE_WHITEBOARD
+		case "Table":       ok = true; taskType = TASK_TYPE_TABLE
+		default:            ok = false
+		}
+	}
+	return taskType, ok
+}
 
+func TaskTypeStr(e int) string {
+	switch e {
+	case TASK_TYPE_BOOLEAN:     return "Boolean"
+	case TASK_TYPE_PROGRESSION: return "Progression"
+	case TASK_TYPE_NOTE:        return "Note"
+	case TASK_TYPE_IMAGE:       return "Image"
+	case TASK_TYPE_TIMER:       return "Timer"
+	case TASK_TYPE_LINE:        return "Line"
+	case TASK_TYPE_MAP:         return "Map"
+	case TASK_TYPE_WHITEBOARD:  return "Whiteboard"
+	case TASK_TYPE_TABLE:       return "Table"
+	default:                    return ""
+	}
+}
+
+func NewTask(board *Board) *Task {
 	months := []string{
 		"January",
 		"February",
@@ -476,10 +522,9 @@ func (task *Task) Serialize() string {
 	}
 
 	jsonData, _ = sjson.Set(jsonData, `Selected`, task.Selected)
-	jsonData, _ = sjson.Set(jsonData, `TaskType\.CurrentChoice`, task.TaskType.CurrentChoice)
+	jsonData, _ = sjson.Set(jsonData, `TaskType\.CurrentChoice`, TaskTypeStr(task.TaskType.CurrentChoice))
 
 	if task.Is(TASK_TYPE_TIMER) {
-
 		jsonData, _ = sjson.Set(jsonData, `TimerMode\.CurrentChoice`, task.TimerMode.CurrentChoice)
 		jsonData, _ = sjson.Set(jsonData, `TimerRunning`, task.TimerRunning)
 		jsonData, _ = sjson.Set(jsonData, `TimerRepeating\.Checked`, task.TimerRepeating.Checked)
@@ -496,7 +541,6 @@ func (task *Task) Serialize() string {
 			jsonData, _ = sjson.Set(jsonData, `TimerDailyHourSpinner\.Number`, task.DailyHour.Number())
 			jsonData, _ = sjson.Set(jsonData, `TimerDailyMinuteSpinner\.Number`, task.DailyMinute.Number())
 		}
-
 	}
 
 	if task.Is(TASK_TYPE_TIMER) && task.TimerMode.CurrentChoice == TIMER_TYPE_DATE || task.DeadlineOn.Checked {
@@ -571,28 +615,28 @@ func (task *Task) Serializable() bool {
 // it seems to be easier to serialize and deserialize using a string (same as saving and loading) than altering
 // the functions to work (as e.g. loading numbers from JSON gives float64s, but passing the map[string]interface{} directly from
 // deserialization to serialization contains values that may be other discrete number types).
-func (task *Task) Deserialize(jsonData string) {
-
-	// JSON encodes all numbers as 64-bit floats, so this saves us some visual ugliness.
+func (task *Task) Deserialize(taskData gjson.Result, taskType int) {
 	getFloat := func(name string) float32 {
-		return float32(gjson.Get(jsonData, name).Float())
+		return float32(taskData.Get(name).Float())
 	}
 
 	getInt := func(name string) int {
-		return int(gjson.Get(jsonData, name).Int())
+		return int(taskData.Get(name).Int())
 	}
 
 	getBool := func(name string) bool {
-		return gjson.Get(jsonData, name).Bool()
+		return taskData.Get(name).Bool()
 	}
 
 	getString := func(name string) string {
-		return gjson.Get(jsonData, name).String()
+		return taskData.Get(name).String()
 	}
 
 	hasData := func(name string) bool {
-		return gjson.Get(jsonData, name).Exists()
+		return taskData.Get(name).Exists()
 	}
+
+	task.TaskType.CurrentChoice = taskType
 
 	task.Position.X = getFloat(`Position\.X`)
 	task.Position.Y = getFloat(`Position\.Y`)
@@ -600,7 +644,7 @@ func (task *Task) Deserialize(jsonData string) {
 	task.Rect.X = task.Position.X
 	task.Rect.Y = task.Position.Y
 
-	if gjson.Get(jsonData, `ImageDisplaySize\.X`).Exists() {
+	if hasData(`ImageDisplaySize\.X`) {
 		task.DisplaySize.X = getFloat(`ImageDisplaySize\.X`)
 		task.DisplaySize.Y = getFloat(`ImageDisplaySize\.Y`)
 	}
@@ -610,8 +654,7 @@ func (task *Task) Deserialize(jsonData string) {
 	task.CompletionProgressionMax.SetNumber(getInt(`Progression\.Max`))
 	task.Description.SetText(getString(`Description`))
 
-	if f := gjson.Get(jsonData, `FilePath`); f.Exists() {
-
+	if f := taskData.Get(`FilePath`); f.Exists() {
 		if f.IsArray() {
 			str := []string{}
 			for _, component := range f.Array() {
@@ -628,14 +671,11 @@ func (task *Task) Deserialize(jsonData string) {
 		} else {
 			task.FilePathTextbox.SetText(getString(`FilePath`))
 		}
-
 	}
 
 	if hasData(`Selected`) {
 		task.Selected = getBool(`Selected`)
 	}
-
-	task.TaskType.CurrentChoice = getInt(`TaskType\.CurrentChoice`)
 
 	if task.Is(TASK_TYPE_TIMER) {
 
@@ -702,32 +742,26 @@ func (task *Task) Deserialize(jsonData string) {
 		}
 
 		if task.Valid {
-
-			endingPositions := gjson.Get(jsonData, `LineEndings`).Array()
+			endingPositions := taskData.Get(`LineEndings`).Array()
 
 			for i := 0; i < len(endingPositions); i += 2 {
-
 				newEnding := task.CreateLineEnding()
 				newEnding.Position.X = float32(endingPositions[i].Float())
 				newEnding.Position.Y = float32(endingPositions[i+1].Float())
 				newEnding.Rect.X = newEnding.Position.X
 				newEnding.Rect.Y = newEnding.Position.Y
-
 			}
-
 		}
 
 		task.Board.Project.LogOn = prevLogOn
-
 	}
 
 	if hasData(`MapData`) {
-
 		if task.MapImage == nil {
 			task.MapImage = NewMapImage(task)
 		}
 
-		for y, row := range gjson.Get(jsonData, `MapData`).Array() {
+		for y, row := range taskData.Get(`MapData`).Array() {
 			for x, value := range row.Array() {
 				task.MapImage.Data[y][x] = int32(value.Int())
 			}
@@ -736,11 +770,9 @@ func (task *Task) Deserialize(jsonData string) {
 		task.MapImage.cellWidth = int(int32(task.DisplaySize.X) / task.Board.Project.GridSize)
 		task.MapImage.cellHeight = int((int32(task.DisplaySize.Y) - task.Board.Project.GridSize) / task.Board.Project.GridSize)
 		task.MapImage.Changed = true
-
 	}
 
 	if hasData(`Whiteboard`) {
-
 		if task.Whiteboard == nil {
 			task.Whiteboard = NewWhiteboard(task)
 		}
@@ -748,7 +780,7 @@ func (task *Task) Deserialize(jsonData string) {
 		task.Whiteboard.Resize(task.DisplaySize.X, task.DisplaySize.Y-float32(task.Board.Project.GridSize))
 
 		wbData := []string{}
-		for _, row := range gjson.Get(jsonData, `Whiteboard`).Array() {
+		for _, row := range taskData.Get(`Whiteboard`).Array() {
 			wbData = append(wbData, row.String())
 		}
 
@@ -757,19 +789,16 @@ func (task *Task) Deserialize(jsonData string) {
 	}
 
 	if hasData(`TableData`) {
-
 		if task.TableData == nil {
 			task.TableData = NewTableData(task)
 		}
 
-		task.TableData.Deserialize(gjson.Get(jsonData, `TableData`).String())
-
+		task.TableData.Deserialize(getString(`TableData`))
 	}
 
 	if task.Contents != nil {
 		task.Contents.ReceiveMessage(MessageTaskDeserialization)
 	}
-
 }
 
 func (task *Task) Update() {

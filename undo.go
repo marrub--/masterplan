@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -252,7 +253,9 @@ func NewUndoState(task *Task) *UndoState {
 }
 
 func (state *UndoState) Apply() {
-	state.Task.Deserialize(state.Serialized)
+	ser := gjson.Parse(state.Serialized)
+	taskType, _ := ParseTaskType(ser)
+	state.Task.Deserialize(ser, taskType)
 	state.Task.UndoChange = false
 	state.Task.UndoCreation = false
 	state.Task.UndoDeletion = false

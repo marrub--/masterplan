@@ -964,8 +964,13 @@ func LoadProject(filepath string) *Project {
 					boardIndex = int(taskData.Get(`BoardIndex`).Int())
 				}
 
+				taskType, ok := ParseTaskType(taskData)
+				if !ok {
+					continue
+				}
+
 				task := project.Boards[boardIndex].CreateNewTask()
-				task.Deserialize(taskData.String())
+				task.Deserialize(taskData, taskType)
 
 				task.Rect.X = task.Position.X
 				task.Rect.Y = task.Position.Y
