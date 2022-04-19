@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/effects"
-	"github.com/faiface/beep/speaker"
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"github.com/hako/durafmt"
 	"github.com/ncruces/zenity"
@@ -1033,380 +1030,10 @@ func (c *ImageContents) ReceiveMessage(msg string) {}
 
 func (c *ImageContents) Trigger(trigger int) {}
 
-type SoundContents struct {
-	Task             *Task
-	Resource         *Resource
-	SoundStream      beep.StreamSeekCloser
-	SoundSampler     *beep.Resampler
-	SoundControl     *beep.Ctrl
-	SoundVolume      *effects.Volume
-	LoadedResource   bool
-	LoadedPath       string
-	BGProgress       *taskBGProgress
-	FinishedPlayback bool
-	TextSize         rl.Vector2
-	DisplayedText    string
-}
-
-func NewSoundContents(task *Task) *SoundContents {
-
-	contents := &SoundContents{
-		Task:       task,
-		BGProgress: newTaskBGProgress(task),
-		SoundVolume: &effects.Volume{
-			Base:   50,
-			Volume: float64(task.Board.Project.AudioVolume.Number())/100 - 1,
-		},
-	}
-
-	contents.TextSize, _ = TextSize(task.Description.Text(), false)
-
-	contents.LoadResource()
-
-	return contents
-}
-
-func (c *SoundContents) Update() {
-
-	if c.Task.LoadMediaButton.Clicked {
-
-		filepath := ""
-		var err error
-
-		patterns := []string{}
-		patterns = append(patterns, PermutateCaseForString("wav", "*.")...)
-		patterns = append(patterns, PermutateCaseForString("ogg", "*.")...)
-		patterns = append(patterns, PermutateCaseForString("flac", "*.")...)
-		patterns = append(patterns, PermutateCaseForString("mp3", "*.")...)
-
-		filepath, err = zenity.SelectFile(zenity.Title("Select sound file"), zenity.FileFilters{{Name: "Sound File", Patterns: patterns}})
-
-		if err == nil && filepath != "" {
-			c.Task.FilePathTextbox.SetText(filepath)
-		}
-
-	}
-
-	if c.FinishedPlayback {
-		c.FinishedPlayback = false
-		c.LoadedResource = false
-		c.LoadResource() // Re-initialize the stream, because it's been thrashed (emptied)
-
-		var nextTask *Task
-
-		if c.Task.TaskBelow != nil && c.Task.TaskBelow.Is(TASK_TYPE_SOUND) {
-			nextTask = c.Task.TaskBelow
-		} else if c.Task.TaskAbove != nil && c.Task.TaskAbove.Is(TASK_TYPE_SOUND) {
-			nextTask = c.Task.TaskAbove
-			for nextTask != nil && nextTask.TaskAbove != nil && nextTask.TaskAbove.Is(TASK_TYPE_SOUND) {
-				nextTask = nextTask.TaskAbove
-			}
-		}
-
-		if nextTask != nil {
-
-			if contents, ok := nextTask.Contents.(*SoundContents); ok {
-				contents.Play()
-			}
-
-		}
-
-	}
-
-	if c.Task.Board.Project.IsInNeutralState() {
-
-		if c.Task.Selected && programSettings.Keybindings.On(KBPlaySounds) {
-
-			if c.SoundControl != nil {
-				c.SoundControl.Paused = !c.SoundControl.Paused
-			}
-
-		} else if programSettings.Keybindings.On(KBStopAllSounds) {
-
-			if c.SoundControl != nil && !c.SoundControl.Paused {
-				c.Task.Board.Project.Log("Stopped playing [%s].", c.LoadedPath)
-				c.SoundControl.Paused = true
-			}
-
-		}
-	}
-
-}
-
-func (c *SoundContents) LoadResource() {
-
-	fp := c.Task.FilePathTextbox.Text()
-
-	if !c.Task.Open && c.LoadedPath != fp {
-
-		c.LoadedPath = fp
-
-		newRes := c.Task.Board.Project.LoadResource(fp)
-
-		if newRes != nil && newRes != c.Resource {
-			c.LoadedResource = false
-		} else if newRes == nil {
-			// Couldn't load the resource for some reason, so don't try again
-			c.LoadedResource = true
-		}
-
-		if c.Resource != nil && c.Resource != newRes {
-			c.SoundStream.Close()
-			c.SoundControl.Paused = true
-		}
-
-		c.Resource = newRes
-
-	}
-
-	if c.Resource != nil {
-
-		if !c.LoadedResource && c.Resource.State() == RESOURCE_STATE_READY {
-
-			if c.Resource.IsAudio() {
-
-				c.ReloadSound()
-
-			} else {
-				c.Task.Board.Project.Log("Cannot load file: [%s]\nAre you sure it's a sound file?", c.Task.FilePathTextbox.Text())
-				c.Resource = nil
-			}
-
-			c.LoadedResource = true
-
-			c.Task.UndoChange = true
-
-		} else if c.Resource.State() == RESOURCE_STATE_DELETED {
-
-			c.Resource = nil
-			c.LoadedPath = ""
-			if c.SoundControl != nil {
-				c.SoundControl.Paused = true
-				c.SoundStream.Close()
-			}
-
-		}
-
-	}
-
-}
-
-func (c *SoundContents) ReloadSound() {
-
-	stream, format, _ := c.Resource.Audio()
-
-	c.SoundStream = stream
-
-	c.SoundSampler = beep.Resample(2, format.SampleRate, beep.SampleRate(c.Task.Board.Project.AudioSetSampleRate), c.SoundStream)
-
-	c.SoundVolume.Streamer = c.SoundSampler
-
-	c.SoundControl = &beep.Ctrl{Streamer: c.SoundVolume, Paused: true}
-
-	speaker.Play(beep.Seq(c.SoundControl, beep.Callback(func() {
-		c.FinishedPlayback = true
-	})))
-
-}
-
-func (c *SoundContents) Play() {
-	if c.SoundControl != nil {
-		c.SoundControl.Paused = false
-	}
-}
-
-func (c *SoundContents) Stop() {
-	if c.SoundControl != nil {
-		c.SoundControl.Paused = true
-	}
-}
-
-// StreamTime returns the playhead time of the sound sample.
-func (c *SoundContents) StreamTime() (float64, float64) {
-
-	if c.SoundSampler != nil {
-
-		rate := c.SoundSampler.Ratio() * float64(c.Task.Board.Project.AudioSetSampleRate)
-
-		playTime := float64(c.SoundStream.Position()) / rate
-		lengthTime := float64(c.SoundStream.Len()) / rate
-
-		return playTime, lengthTime
-
-	}
-
-	return 0, 0
-
-}
-
-func (c *SoundContents) Draw() {
-
-	drawTaskBG(c.Task, getThemeColor(GUI_INSIDE))
-
-	project := c.Task.Board.Project
-	cp := rl.Vector2{c.Task.Rect.X, c.Task.Rect.Y}
-	text := ""
-
-	displaySize := rl.Vector2{16, 16}
-
-	if c.SoundStream != nil {
-		c.BGProgress.Current = c.SoundStream.Position()
-		c.BGProgress.Max = c.SoundStream.Len()
-		c.BGProgress.Draw()
-	}
-
-	if project.ShowIcons.Checked {
-		cp.X += 16
-		displaySize.X += 16
-	}
-
-	c.LoadResource()
-
-	if c.Resource != nil {
-
-		switch c.Resource.State() {
-
-		case RESOURCE_STATE_READY:
-
-			text = c.Resource.Filename()
-
-			playheadTime, streamLength := c.StreamTime()
-
-			ph := time.Duration(playheadTime * 1000 * 1000 * 1000)
-			str := time.Duration(streamLength * 1000 * 1000 * 1000)
-
-			phM := int(math.Floor(ph.Minutes()))
-			phS := int(math.Floor(ph.Seconds())) - phM*60
-
-			strM := int(math.Floor(str.Minutes()))
-			strS := int(math.Floor(str.Seconds())) - strM*60
-
-			text += fmt.Sprintf(" : (%02d:%02d / %02d:%02d)", phM, phS, strM, strS)
-
-			srcX := float32(16)
-
-			if !c.SoundControl.Paused {
-				srcX += 16 // Pause icon
-			}
-
-			if c.Task.SmallButton(srcX, 16, 16, 16, cp.X, cp.Y) {
-				speaker.Lock()
-				c.SoundControl.Paused = !c.SoundControl.Paused
-				speaker.Unlock()
-				ConsumeMouseInput(rl.MouseLeftButton)
-			}
-
-			cp.X += 16
-			displaySize.X += 16
-
-			if c.Task.SmallButton(48, 16, 16, 16, cp.X, cp.Y) {
-				speaker.Lock()
-				c.SoundStream.Seek(0)
-				speaker.Unlock()
-				ConsumeMouseInput(rl.MouseLeftButton)
-			}
-
-			cp.X += 16
-			displaySize.X += 16
-
-			// Draw controls
-
-		case RESOURCE_STATE_DOWNLOADING:
-
-			// Some resources have no visible progress when downloading
-			progress := c.Resource.Progress()
-			if progress >= 0 {
-				text = fmt.Sprintf("Downloading [%s]... [%d%%]", c.Resource.Filename(), progress)
-				c.BGProgress.Current = c.Resource.Progress()
-				c.BGProgress.Max = 100
-				c.BGProgress.Draw()
-			} else {
-				text = fmt.Sprintf("Downloading [%s]...", c.Resource.Filename())
-			}
-
-		}
-
-	} else {
-		text = "No sound loaded."
-	}
-
-	cp.X += 4
-
-	if text != "" {
-		DrawText(cp, text)
-
-		if text != c.DisplayedText {
-			c.TextSize, _ = TextSize(text, false)
-			c.DisplayedText = text
-		}
-
-		displaySize.X += c.TextSize.X
-	}
-
-	if displaySize.X < 16 {
-		displaySize.X = 16
-	}
-	if displaySize.Y < 16 {
-		displaySize.Y = 16
-	}
-
-	if project.ShowIcons.Checked {
-		rl.DrawTexturePro(project.GUI_Icons, rl.Rectangle{80, 0, 16, 16}, rl.Rectangle{c.Task.Rect.X, c.Task.Rect.Y, 16, 16}, rl.Vector2{}, 0, getThemeColor(GUI_FONT_COLOR))
-	}
-
-	displaySize = c.Task.Board.Project.RoundPositionToGrid(displaySize)
-
-	if displaySize != c.Task.DisplaySize {
-		c.Task.DisplaySize = displaySize
-		c.Task.Board.TaskChanged = true
-	}
-
-}
-
-func (c *SoundContents) Destroy() {
-
-	if c.SoundStream != nil {
-		c.SoundStream.Close()
-		c.SoundControl.Paused = true
-	}
-
-}
-
-func (c *SoundContents) ReceiveMessage(msg string) {
-
-	if msg == MessageSettingsChange {
-
-		if c.Resource != nil && c.Resource.State() == RESOURCE_STATE_READY && c.Resource.IsAudio() {
-			c.ReloadSound()
-		}
-
-		// We lock the speaker after reloading the sound because we call speaker.Play() within ReloadSound(); if it's locked, this creates a deadlock.
-		speaker.Lock()
-		c.SoundVolume.Volume = float64(c.Task.Board.Project.AudioVolume.Number())/100 - 1
-		c.SoundVolume.Silent = c.Task.Board.Project.AudioVolume.Number() == 0
-		speaker.Unlock()
-
-		c.DisplayedText = ""
-
-	}
-
-}
-
-func (c *SoundContents) Trigger(trigger int) {
-	if trigger == TASK_TRIGGER_TOGGLE {
-		c.SoundControl.Paused = !c.SoundControl.Paused
-	} else if trigger == TASK_TRIGGER_SET {
-		c.SoundControl.Paused = false
-	} else if trigger == TASK_TRIGGER_CLEAR {
-		c.SoundControl.Paused = true
-	}
-}
-
 type TimerContents struct {
 	Task          *Task
 	TimerValue    float32
 	TargetDate    time.Time
-	AlarmSound    *effects.Volume
 	TextSize      rl.Vector2
 	DisplayedText string
 	Initialized   bool
@@ -1416,13 +1043,8 @@ func NewTimerContents(task *Task) *TimerContents {
 
 	contents := &TimerContents{
 		Task: task,
-		AlarmSound: &effects.Volume{
-			Base:   50,
-			Volume: float64(task.Board.Project.AudioVolume.Number())/100 - 1,
-		},
 	}
 
-	contents.ReloadAlarmSound()
 	contents.CalculateTimeLeft() // Attempt to set the time on creation
 
 	return contents
@@ -1530,19 +1152,9 @@ func (c *TimerContents) Update() {
 
 }
 
-func (c *TimerContents) ReloadAlarmSound() {
-
-	res := c.Task.Board.Project.LoadResource(LocalPath("assets", "alarm.wav"))
-	alarmSound, alarmFormat, _ := res.Audio()
-	c.AlarmSound.Streamer = beep.Resample(2, alarmFormat.SampleRate, beep.SampleRate(c.Task.Board.Project.AudioSetSampleRate), alarmSound)
-
-}
-
 func (c *TimerContents) TimeUp() {
 
 	project := c.Task.Board.Project
-
-	triggeredSoundNeighbor := false
 
 	project.Log("Timer [%s] went off.", c.Task.TimerName.Text())
 
@@ -1596,11 +1208,6 @@ func (c *TimerContents) TimeUp() {
 				project.Log("Timer [%s] %s Task at [%d, %d].", c.Task.TimerName.Text(), effect, int32(neighbor.Position.X), int32(neighbor.Position.Y))
 			}
 
-			// If we trigger a Sound Task, then we don't play the Alarm sound (this might be better to simply be a project setting instead)
-			if !triggeredSoundNeighbor && neighbor.Is(TASK_TYPE_SOUND) && neighbor.Contents != nil && neighbor.Contents.(*SoundContents).Resource != nil {
-				triggeredSoundNeighbor = true
-			}
-
 		}
 
 		if c.Task.TaskBelow != nil {
@@ -1623,12 +1230,6 @@ func (c *TimerContents) TimeUp() {
 			triggerNeighbor(c.Task.TaskUnder)
 		}
 
-	}
-
-	// Line triggering also goes here
-
-	if !triggeredSoundNeighbor {
-		speaker.Play(beep.Seq(c.AlarmSound, beep.Callback(c.ReloadAlarmSound)))
 	}
 
 }
@@ -1752,13 +1353,6 @@ func (c *TimerContents) Destroy() {}
 func (c *TimerContents) ReceiveMessage(msg string) {
 
 	if msg == MessageSettingsChange {
-
-		c.ReloadAlarmSound()
-
-		speaker.Lock()
-		c.AlarmSound.Volume = float64(c.Task.Board.Project.AudioVolume.Number())/100 - 1
-		c.AlarmSound.Silent = c.Task.Board.Project.AudioVolume.Number() == 0
-		speaker.Unlock()
 
 		c.DisplayedText = ""
 

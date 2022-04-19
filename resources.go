@@ -9,11 +9,6 @@ import (
 	"time"
 
 	"github.com/cavaliercoder/grab"
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/flac"
-	"github.com/faiface/beep/mp3"
-	"github.com/faiface/beep/vorbis"
-	"github.com/faiface/beep/wav"
 	"github.com/gabriel-vasile/mimetype"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -150,8 +145,6 @@ func (res *Resource) ParseData() error {
 				res.Data = rl.LoadTexture(res.LocalFilepath)
 			}
 
-		} else if strings.Contains(res.MimeData.String(), "audio") {
-			res.Data = res.MimeData.String() // We don't actually have any data to store for audio, as Sound Tasks simply create their own streams
 		} else {
 			err = errors.New("unrecognized resource type")
 			delete(res.Project.Resources, res.ResourcePath) // Delete the resource if it isn't recognized, as it shouldn't be used anyway (hopefully this is OK?)
@@ -171,10 +164,6 @@ func (res *Resource) ParseData() error {
 
 func (res *Resource) MimeIsImage() bool {
 	return res.MimeData != nil && strings.Contains(res.MimeData.String(), "image")
-}
-
-func (res *Resource) MimeIsAudio() bool {
-	return res.MimeData != nil && strings.Contains(res.MimeData.String(), "audio")
 }
 
 func (res *Resource) State() int {
@@ -219,10 +208,6 @@ func (res *Resource) Gif() *GifAnimation {
 	return res.Data.(*GifAnimation)
 }
 
-func (res *Resource) IsAudio() bool {
-	return strings.Contains(res.MimeData.String(), "audio")
-}
-
 // Progress returns the progress of downloading or loading the resource, as an integer ranging from 0 to 100. If the returned value is less than 0, the progress cannot be determined.
 func (res *Resource) Progress() int {
 	if res.DownloadResponse != nil && !res.DownloadResponse.IsComplete() {
@@ -236,48 +221,6 @@ func (res *Resource) Progress() int {
 	return 0
 }
 
-// Audio is special in that there is no resource to be shared between Tasks like with Images, as each Task
-// should have its own stream it manages to play back audio. So instead, the resource's Audio() function returns
-// a brand new stream pointing to the audio file. The Task (or whatever uses the Stream) has to handle closing
-// the Stream when it's deleted (which it does in the ReceiveMessage() function when it is informed that it is
-// going to be deleted).
-func (res *Resource) Audio() (beep.StreamSeekCloser, beep.Format, error) {
-
-	var stream beep.StreamSeekCloser
-	var format beep.Format
-	var err error
-
-	if res.IsAudio() {
-
-		file, err := os.Open(res.LocalFilepath)
-		if err != nil {
-			currentProject.Log("Could not open audio file: %s", err.Error())
-		} else {
-
-			switch ext := res.MimeData.Extension(); ext {
-			case ".wav":
-				stream, format, err = wav.Decode(file)
-			case ".flac":
-				stream, format, err = flac.Decode(file)
-			case ".ogg":
-			case ".oga":
-				stream, format, err = vorbis.Decode(file)
-			case ".mp3":
-				stream, format, err = mp3.Decode(file)
-			}
-
-			if err != nil {
-				currentProject.Log("Error decoding audio file: %s", err.Error())
-			}
-
-		}
-
-	}
-
-	return stream, format, err
-
-}
-
 func (res *Resource) Destroy() {
 
 	if res.IsTexture() {
@@ -286,7 +229,6 @@ func (res *Resource) Destroy() {
 		res.Gif().Destroy()
 	}
 	// GIFs don't need to be disposed of directly here; the file handle was already Closed.
-	// Audio streams are closed by the Task, as each Sound Task has its own stream.
 
 	// We no longer delete temporary files here, as the project deletes the entire temporary directory in Project.Destroy().
 	// if res.DownloadResponse != nil {

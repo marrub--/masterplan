@@ -9,7 +9,6 @@ require (
 	github.com/cavaliercoder/grab v2.0.0+incompatible
 	github.com/chonla/roman-number-go v0.0.0-20181101035413-6768129de021
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/faiface/beep v1.0.2
 	github.com/gabriel-vasile/mimetype v1.1.0
 	github.com/gen2brain/raylib-go v0.0.0-20200528082952-e0f56b22753f
 	github.com/golang/snappy v0.0.1 // indirect

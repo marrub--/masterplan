@@ -21,7 +21,6 @@ const (
 	TASK_TYPE_PROGRESSION
 	TASK_TYPE_NOTE
 	TASK_TYPE_IMAGE
-	TASK_TYPE_SOUND
 	TASK_TYPE_TIMER
 	TASK_TYPE_LINE
 	TASK_TYPE_MAP
@@ -154,7 +153,7 @@ func NewTask(board *Board) *Task {
 	task := &Task{
 		Rect:                         rl.Rectangle{0, 0, 16, 16},
 		Board:                        board,
-		TaskType:                     NewButtonGroup(0, 32, 500, 32, 3, "Check Box", "Progression", "Note", "Image", "Sound", "Timer", "Line", "Map", "Whiteboard", "Table"),
+		TaskType:                     NewButtonGroup(0, 32, 500, 32, 3, "Check Box", "Progression", "Note", "Image", "Timer", "Line", "Map", "Whiteboard", "Table"),
 		Description:                  NewTextbox(0, 64, 512, 32),
 		TimerName:                    NewTextbox(0, 64, 512, 16),
 		CompletionCheckbox:           NewCheckbox(0, 96, 32, 32),
@@ -278,11 +277,11 @@ func (task *Task) SetPanel() {
 	task.TimerName.SetFocused(true)
 
 	row = column.Row()
-	row.Item(NewLabel("Filepath:"), TASK_TYPE_IMAGE, TASK_TYPE_SOUND)
+	row.Item(NewLabel("Filepath:"), TASK_TYPE_IMAGE)
 	row = column.Row()
-	row.Item(task.FilePathTextbox, TASK_TYPE_IMAGE, TASK_TYPE_SOUND)
+	row.Item(task.FilePathTextbox, TASK_TYPE_IMAGE)
 	row = column.Row()
-	row.Item(task.LoadMediaButton, TASK_TYPE_IMAGE, TASK_TYPE_SOUND)
+	row.Item(task.LoadMediaButton, TASK_TYPE_IMAGE)
 
 	row = column.Row()
 	row.Item(task.ResetImageSizeButton, TASK_TYPE_IMAGE)
@@ -1145,8 +1144,6 @@ func (task *Task) SetContents() {
 			task.Contents = NewTableContents(task)
 		case TASK_TYPE_IMAGE:
 			task.Contents = NewImageContents(task)
-		case TASK_TYPE_SOUND:
-			task.Contents = NewSoundContents(task)
 		case TASK_TYPE_MAP:
 			task.Contents = NewMapContents(task)
 		case TASK_TYPE_WHITEBOARD:
@@ -1326,10 +1323,6 @@ func (task *Task) ReceiveMessage(message string, data map[string]interface{}) {
 		// We remove the Task from the grid but not change the GridPositions list because undos need to
 		// re-place the Task at the original position.
 		task.Board.RemoveTaskFromGrid(task)
-
-		if audio, ok := task.Contents.(*SoundContents); ok && audio.SoundControl != nil {
-			audio.SoundControl.Paused = true // We don't simply call contents.Destroy() because you could undo a deletion
-		}
 
 		if task.Contents != nil {
 			task.Contents.Destroy()
@@ -1711,7 +1704,7 @@ func (task *Task) Destroy() {
 }
 
 func (task *Task) UsesMedia() bool {
-	return task.Is(TASK_TYPE_IMAGE, TASK_TYPE_SOUND)
+	return task.Is(TASK_TYPE_IMAGE)
 }
 
 func (task *Task) Is(taskTypes ...int) bool {

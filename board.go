@@ -307,10 +307,6 @@ func (board *Board) HandleDroppedFiles() {
 						task.SetContents()
 						task.Contents.(*ImageContents).ResetSize = true
 
-					} else if guess == TASK_TYPE_SOUND {
-
-						task.FilePathTextbox.SetText(droppedPath)
-
 					} else {
 
 						text, err := ioutil.ReadFile(droppedPath)
@@ -399,11 +395,6 @@ func (board *Board) CopySelectedTasks() {
 
 		case TASK_TYPE_NOTE:
 			icon = "NOTE : "
-
-		case TASK_TYPE_SOUND:
-
-			icon = "SOUND : "
-			text = `"` + task.FilePathTextbox.Text() + `"`
 
 		case TASK_TYPE_IMAGE:
 
@@ -839,8 +830,6 @@ func (board *Board) PasteContent() {
 				task.SetContents()
 				task.Contents.(*ImageContents).ResetSize = true
 
-			} else if guess == TASK_TYPE_SOUND {
-				task.FilePathTextbox.SetText(clipboardData)
 			} else {
 				task.Description.SetText(clipboardData)
 			}
@@ -866,8 +855,6 @@ func (board *Board) GuessTaskTypeFromText(filepath string) int {
 
 		if res.MimeIsImage() {
 			return TASK_TYPE_IMAGE
-		} else if res.MimeIsAudio() {
-			return TASK_TYPE_SOUND
 		}
 
 	}

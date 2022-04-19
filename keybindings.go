@@ -157,7 +157,6 @@ const (
 	KBCreateProgressionTask   = "Create Progression Task"
 	KBCreateNoteTask          = "Create Note Task"
 	KBCreateImageTask         = "Create Image Task"
-	KBCreateSoundTask         = "Create Sound Task"
 	KBCreateTimerTask         = "Create Timer Task"
 	KBCreateLinetask          = "Create Line Task"
 	KBCreateMapTask           = "Create Map Task"
@@ -196,8 +195,6 @@ const (
 	KBProgressToggle          = "Progression: Toggle Completion"
 	KBPencilTool              = "Map / Whiteboard: Toggle Pencil Tool"
 	KBMapRectTool             = "Map: Toggle Rectangle Tool"
-	KBPlaySounds              = "Sound: Play / Pause Sounds "
-	KBStopAllSounds           = "Stop All Playing Sounds"
 	KBStartTimer              = "Timer: Start / Pause Timer"
 	KBChangePencilToolSize    = "Whiteboard: Change Pencil Tool Size"
 	KBShowFPS                 = "Show FPS"
@@ -418,7 +415,6 @@ func (kb *Keybindings) Default() {
 	kb.Define(KBCreateProgressionTask, rl.KeyTwo, rl.KeyLeftControl)
 	kb.Define(KBCreateNoteTask, rl.KeyThree, rl.KeyLeftControl)
 	kb.Define(KBCreateImageTask, rl.KeyFour, rl.KeyLeftControl)
-	kb.Define(KBCreateSoundTask, rl.KeyFive, rl.KeyLeftControl)
 	kb.Define(KBCreateTimerTask, rl.KeySix, rl.KeyLeftControl)
 	kb.Define(KBCreateLinetask, rl.KeySeven, rl.KeyLeftControl)
 	kb.Define(KBCreateMapTask, rl.KeyEight, rl.KeyLeftControl)
@@ -464,8 +460,6 @@ func (kb *Keybindings) Default() {
 	kb.Define(KBPencilTool, rl.KeyQ)
 	kb.Define(KBChangePencilToolSize, rl.KeyR)
 	kb.Define(KBMapRectTool, rl.KeyR)
-	kb.Define(KBPlaySounds, rl.KeyC)
-	kb.Define(KBStopAllSounds, rl.KeyC, rl.KeyLeftShift)
 	kb.Define(KBStartTimer, rl.KeyC)
 	kb.Define(KBSelectPrevLineEnding, rl.KeyX).triggerMode = TriggerModeRepeating
 	kb.Define(KBSelectNextLineEnding, rl.KeyC).triggerMode = TriggerModeRepeating

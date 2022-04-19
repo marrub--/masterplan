@@ -1,12 +1,13 @@
-lastopenedplan
-bin
+*.blend*
+*.pprof*
 .DS_Store
+.stfolder
 .stignore
 System Volume Information
-.stfolder
-*.pprof*
-*.blend*
-todo
+bin
+bin_archive
+lastopenedplan
+masterplan
 newTerminal.sh
 reflex.sh
-bin_archive
+todo

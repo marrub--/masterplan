@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,9 +18,6 @@ import (
 	"github.com/tanema/gween/ease"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/speaker"
 
 	"github.com/ncruces/zenity"
 
@@ -124,12 +120,6 @@ type Project struct {
 	ColorThemeSpinner           *Spinner
 	AutoReloadThemes            *Checkbox
 	AutoLoadLastProject         *Checkbox
-
-	AudioVolume          *NumberSpinner
-	AudioSampleRate      *Spinner
-	AudioSetSampleRate   int
-	AudioSampleBuffer    *NumberSpinner
-	AudioSetSampleBuffer int
 
 	ScrollwheelSensitivity    *NumberSpinner
 	SmoothPanning             *Checkbox
@@ -245,9 +235,6 @@ func NewProject() *Project {
 		NumberTopLevel:              NewCheckbox(0, 0, 32, 32),
 		PulsingTaskSelection:        NewCheckbox(0, 0, 32, 32),
 		AutoSave:                    NewCheckbox(0, 0, 32, 32),
-		AudioSampleRate:             NewSpinner(0, 0, 192, 32, "22050", "44100", "48000", "88200", "96000"),
-		AudioSampleBuffer:           NewNumberSpinner(0, 0, 256, 40),
-		AudioVolume:                 NewNumberSpinner(0, 0, 128, 40),
 		BracketSubtasks:             NewCheckbox(0, 0, 32, 32),
 		LockProject:                 NewCheckbox(0, 0, 32, 32),
 		AutomaticBackupInterval:     NewNumberSpinner(0, 0, 128, 40),
@@ -504,24 +491,6 @@ func NewProject() *Project {
 	row.Item(NewLabel("Automatically Reload Changed\nLocal Resources:"), SETTINGS_GLOBAL)
 	row.Item(project.AutoReloadResources, SETTINGS_GLOBAL)
 
-	// Audio
-
-	row = column.Row()
-	label = NewLabel("Audio")
-	label.Underline = true
-	row.Item(label, SETTINGS_GLOBAL)
-
-	row = column.Row()
-	row.Item(NewLabel("Volume:"), SETTINGS_GLOBAL)
-	row.Item(project.AudioVolume, SETTINGS_GLOBAL)
-
-	row.Item(NewLabel("Sample-Rate:"), SETTINGS_GLOBAL)
-	row.Item(project.AudioSampleRate, SETTINGS_GLOBAL)
-
-	row = column.Row()
-	row.Item(NewLabel("Buffer Size:"), SETTINGS_GLOBAL)
-	row.Item(project.AudioSampleBuffer, SETTINGS_GLOBAL)
-
 	// System settings
 
 	row = column.Row()
@@ -692,11 +661,6 @@ func NewProject() *Project {
 	project.TaskTransparency.Minimum = 1
 	project.TaskTransparency.SetNumber(5)
 
-	project.AudioVolume.Maximum = 100
-	project.AudioVolume.Minimum = 0
-	project.AudioVolume.Step = 10
-	project.AudioVolume.SetNumber(80)
-
 	project.IncompleteTasksGlow.Checked = true
 	project.CompleteTasksGlow.Checked = true
 	project.SelectedTasksGlow.Checked = true
@@ -723,19 +687,11 @@ func NewProject() *Project {
 
 	project.MaxUndoSteps.Minimum = 0
 
-	project.AudioSampleBuffer.Minimum = 64
-	project.AudioSampleBuffer.Step = 64
-
 	project.ReloadThemes()
 
 	// We have to open the settings and then close it so the settings options update to the programSettings stored values.
 	project.OpenSettings()
 	project.ProjectSettingsOpen = false
-
-	speaker.Init(beep.SampleRate(project.AudioSampleRate.ChoiceAsInt()), project.AudioSampleBuffer.Number())
-
-	project.AudioSetSampleRate = project.AudioSampleRate.ChoiceAsInt()
-	project.AudioSetSampleBuffer = project.AudioSampleBuffer.Number()
 
 	return project
 
@@ -2006,8 +1962,6 @@ func (project *Project) Shortcuts() {
 						setChoice = TASK_TYPE_NOTE
 					} else if keybindings.On(KBCreateImageTask) {
 						setChoice = TASK_TYPE_IMAGE
-					} else if keybindings.On(KBCreateSoundTask) {
-						setChoice = TASK_TYPE_SOUND
 					} else if keybindings.On(KBCreateTimerTask) {
 						setChoice = TASK_TYPE_TIMER
 					} else if keybindings.On(KBCreateLinetask) {
@@ -2428,22 +2382,6 @@ func (project *Project) GUI() {
 
 				project.ProjectSettingsOpen = false
 
-				if project.AudioSampleRate.ChoiceAsInt() != project.AudioSetSampleRate || project.AudioSampleBuffer.Number() != project.AudioSetSampleBuffer {
-
-					speaker.Init(beep.SampleRate(project.AudioSampleRate.ChoiceAsInt()), project.AudioSampleBuffer.Number())
-					project.AudioSetSampleRate = project.AudioSampleRate.ChoiceAsInt()
-					project.AudioSetSampleBuffer = project.AudioSampleBuffer.Number()
-
-					programSettings.AudioSampleRate = project.AudioSampleRate.ChoiceAsInt()
-					programSettings.AudioSampleBuffer = project.AudioSampleBuffer.Number()
-
-					project.Log("Project sample rate changed to %s.", project.AudioSampleRate.ChoiceAsString())
-					project.Log("Project sample buffer changed to %d.", project.AudioSampleBuffer.Number())
-					project.Log("Currently playing sounds have been stopped and resampled as necessary.")
-
-				}
-
-				programSettings.AudioVolume = project.AudioVolume.Number()
 				programSettings.AutoloadLastPlan = project.AutoLoadLastProject.Checked
 				programSettings.DisableSplashscreen = project.DisableSplashscreen.Checked
 				programSettings.AutoReloadThemes = project.AutoReloadThemes.Checked
@@ -2476,10 +2414,6 @@ func (project *Project) GUI() {
 
 			if project.GridVisible.Changed {
 				project.GenerateGrid()
-			}
-
-			if project.AudioVolume.Changed {
-				project.SendMessage(MessageSettingsChange, nil)
 			}
 
 			if project.ColorThemeSpinner.Changed {
@@ -3090,9 +3024,6 @@ func (project *Project) OpenSettings() {
 	project.DownloadTimeout.SetNumber(programSettings.DownloadTimeout)
 	project.CopyTasksToClipboard.Checked = programSettings.CopyTasksToClipboard
 
-	project.AudioSampleRate.SetChoice(strconv.Itoa(programSettings.AudioSampleRate))
-	project.AudioSampleBuffer.SetNumber(programSettings.AudioSampleBuffer)
-	project.AudioVolume.SetNumber(programSettings.AudioVolume)
 	project.DoubleClickRate.SetNumber(programSettings.DoubleClickRate)
 }
 

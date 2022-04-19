@@ -41,9 +41,6 @@ type ProgramSettings struct {
 	Theme                     string
 	DrawWindowBorder          bool
 	DownloadTimeout           int
-	AudioVolume               int
-	AudioSampleRate           int
-	AudioSampleBuffer         int
 	CopyTasksToClipboard      bool
 	DoubleClickRate           int
 }
@@ -64,9 +61,6 @@ func NewProgramSettings() ProgramSettings {
 		ScrollwheelSensitivity: 1,
 		Theme:                  "Sunlight", // Default theme
 		DownloadTimeout:        4,
-		AudioVolume:            80,
-		AudioSampleRate:        44100,
-		AudioSampleBuffer:      2048,
 		CopyTasksToClipboard:   true,
 		DoubleClickRate:        500,
 	}
