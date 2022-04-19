@@ -220,7 +220,7 @@ var lineSpacing = float32(1) // This is assuming font size is the height, which 
 
 func ReloadFonts() {
 
-	fontPath := LocalPath("assets", "excel.ttf")
+	fontPath := LocalPath("assets", "excel-extended.ttf")
 
 	if programSettings.CustomFontPath != "" && FileExists(programSettings.CustomFontPath) {
 		fontPath = programSettings.CustomFontPath
