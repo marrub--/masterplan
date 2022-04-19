@@ -1,5 +1,3 @@
-// Erase the space before "go" to enable generating the version info from the version info file when it's in the root directory
-// go:generate goversioninfo -64=true
 package main
 
 import (
@@ -17,8 +15,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-// Build-time variable
-var releaseMode = "false"
 var demoMode = "" // If set to something other than "", it's a demo
 
 var camera = rl.NewCamera2D(rl.Vector2{480, 270}, rl.Vector2{}, 0, 1)
@@ -35,38 +31,31 @@ var targetFPS = 60
 var cpuProfileStart = time.Time{}
 
 func init() {
+	existingLogs := []string{}
 
-	if releaseMode == "true" {
-
-		// Redirect STDERR and STDOUT to log.txt in release mode
-
-		existingLogs := []string{}
-
-		for _, file := range FilesInDirectory(filepath.Join(xdg.ConfigHome, "MasterPlan"), "log") {
-			existingLogs = append(existingLogs, file)
-		}
-
-		// Destroy old logs; max is 20 (for now)
-		for len(existingLogs) > 20 {
-			os.Remove(existingLogs[0])
-			existingLogs = existingLogs[1:]
-		}
-
-		logPath, err := xdg.ConfigFile("MasterPlan/log_" + time.Now().Format(FileTimeFormat) + ".txt")
-		if err != nil {
-			panic(err)
-		}
-		f, err := os.Create(logPath)
-		if err != nil {
-			panic(err)
-		}
-
-		os.Stderr = f
-		os.Stdout = f
-
-		log.SetOutput(f)
-
+	for _, file := range FilesInDirectory(filepath.Join(xdg.ConfigHome, "MasterPlan"), "log") {
+		existingLogs = append(existingLogs, file)
 	}
+
+	// Destroy old logs
+	for len(existingLogs) > 2 {
+		os.Remove(existingLogs[0])
+		existingLogs = existingLogs[1:]
+	}
+
+	logPath, err := xdg.ConfigFile("MasterPlan/log_" + time.Now().Format(FileTimeFormat) + ".txt")
+	if err != nil {
+		panic(err)
+	}
+	f, err := os.Create(logPath)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Stderr = f
+	os.Stdout = f
+
+	log.SetOutput(f)
 
 	runtime.LockOSThread() // Don't know if this is necessary still
 }
@@ -79,34 +68,32 @@ func main() {
 	// using runtime.Caller().
 
 	defer func() {
-		if releaseMode == "true" {
-			panicOut := recover()
-			if panicOut != nil {
+		panicOut := recover()
+		if panicOut != nil {
 
-				log.Print(
-					"# ERROR START #\n",
-				)
+			log.Print(
+				"# ERROR START #\n",
+			)
 
-				stackContinue := true
-				i := 0 // We can skip the first few crash lines, as they reach up through the main
-				// function call and into this defer() call.
-				for stackContinue {
-					// Recover the lines of the crash log and log it out.
-					_, fn, line, ok := runtime.Caller(i)
-					stackContinue = ok
-					if ok {
-						fmt.Print("\n", fn, ":", line)
-						if i == 0 {
-							fmt.Print(" | ", "Error: ", panicOut)
-						}
-						i++
+			stackContinue := true
+			i := 0 // We can skip the first few crash lines, as they reach up through the main
+			// function call and into this defer() call.
+			for stackContinue {
+				// Recover the lines of the crash log and log it out.
+				_, fn, line, ok := runtime.Caller(i)
+				stackContinue = ok
+				if ok {
+					fmt.Print("\n", fn, ":", line)
+					if i == 0 {
+						fmt.Print(" | ", "Error: ", panicOut)
 					}
+					i++
 				}
-
-				fmt.Print(
-					"\n\n# ERROR END #\n",
-				)
 			}
+
+			fmt.Print(
+				"\n\n# ERROR END #\n",
+			)
 		}
 	}()
 
@@ -207,6 +194,7 @@ func main() {
 				if !settingsLoaded {
 
 					if loaded := LoadProject(LocalPath("assets", "help_manual.plan")); loaded != nil {
+						currentProject.Destroy()
 						currentProject = loaded
 					}
 
@@ -223,6 +211,7 @@ func main() {
 					}
 
 					if loaded != nil {
+						currentProject.Destroy()
 						currentProject = loaded
 					}
 

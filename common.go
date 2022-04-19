@@ -69,15 +69,9 @@ func LocalPath(folders ...string) string {
 }
 
 func WorkingDirectory() string {
-
 	workingDirectory := ""
 	exePath, _ := os.Executable()
 	workingDirectory = filepath.Dir(exePath)
-
-	if releaseMode == "false" {
-		// Not in release mode, so current working directory is the root.
-		workingDirectory, _ = os.Getwd()
-	}
 
 	return workingDirectory
 }
