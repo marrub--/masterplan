@@ -151,13 +151,15 @@ func ParseTaskType(taskData gjson.Result) (taskType int, ok bool) {
 		case "Table":       ok = true; taskType = TASK_TYPE_TABLE
 		default:            ok = false
 		}
+	} else {
+		ok = false
 	}
 	return taskType, ok
 }
 
 func TaskTypeStr(e int) string {
 	switch e {
-	case TASK_TYPE_BOOLEAN:     return "Boolean"
+	case TASK_TYPE_BOOLEAN:     return "Bool"
 	case TASK_TYPE_PROGRESSION: return "Progression"
 	case TASK_TYPE_NOTE:        return "Note"
 	case TASK_TYPE_IMAGE:       return "Image"
