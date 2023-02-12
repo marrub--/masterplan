@@ -1405,7 +1405,29 @@ func (project *Project) Update() {
 	// This is true once at least one loop has happened
 	project.FullyInitialized = true
 
-	rl.DrawRectangleLinesEx(selectionRect, 1, getThemeColor(GUI_OUTLINE_HIGHLIGHTED))
+	if project.Selecting {
+		mpos := GetWorldMousePosition()
+		txt  := fmt.Sprintf("Pos: %d, %d", int(mpos.X), int(mpos.Y))
+		if int(selectionRect.Width) != 0 || int(selectionRect.Height) != 0 {
+			rl.DrawRectangleLinesEx(selectionRect, 1, getThemeColor(GUI_OUTLINE_HIGHLIGHTED))
+			selPos := [2]int{int(selectionRect.X), int(selectionRect.Y)}
+			if selectionRect.X == mpos.X {
+				selPos[0] = int(selectionRect.X + selectionRect.Width)
+			}
+			if selectionRect.Y == mpos.Y {
+				selPos[1] = int(selectionRect.Y + selectionRect.Height)
+			}
+			txt += fmt.Sprintf("\nSel: %d, %d", selPos[0], selPos[1])
+			txt += fmt.Sprintf("\n%d × %d", int(selectionRect.Width), int(selectionRect.Height))
+			if selectionRect.Width != 0 && selectionRect.Height != 0 {
+				txt += fmt.Sprintf(" (%.2f:1)", selectionRect.Width / selectionRect.Height)
+			}
+		}
+		sz, _ := TextSize(txt, false)
+		r     := rl.Rectangle{selectionRect.X - sz.X, selectionRect.Y - sz.Y, sz.X, sz.Y}
+		rl.DrawRectangleRec(r, getThemeColor(GUI_INSIDE))
+		DrawText(rl.Vector2{r.X, r.Y}, txt)
+	}
 
 	// if project.JustLoaded {
 
