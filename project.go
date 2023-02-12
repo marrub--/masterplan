@@ -2512,22 +2512,12 @@ func (project *Project) GUI() {
 				percentage = int32(float32(completionCount) / float32(taskCount) * 100)
 			}
 
-			DrawGUIText(rl.Vector2{6, project.StatusBar.Y - 2}, "%d / %d Tasks completed (%d%%)", completionCount, taskCount, percentage)
-
-			todayText := time.Now().Format("Monday, January 2, 2006, 15:04:05")
-			textLength := rl.MeasureTextEx(font, todayText, float32(GUIFontSize()), spacing)
-			pos := rl.Vector2{float32(rl.GetScreenWidth())/2 - textLength.X/2, project.StatusBar.Y - 2}
-			pos.X = float32(int(pos.X))
-			pos.Y = float32(int(pos.Y))
-
-			DrawGUIText(pos, todayText)
+			DrawGUIText(rl.Vector2{6, project.StatusBar.Y - 2}, "%d / %d ☑ (%d%%)", completionCount, taskCount, percentage)
 
 			// Search bar
 
 			project.Searchbar.Rect.Y = project.StatusBar.Y + 1
 			project.Searchbar.Rect.X = float32(rl.GetScreenWidth()) - (project.Searchbar.Rect.Width + 16)
-
-			rl.DrawTextureRec(project.GUI_Icons, rl.Rectangle{128, 0, 16, 16}, rl.Vector2{project.Searchbar.Rect.X - 24, project.Searchbar.Rect.Y + 4}, getThemeColor(GUI_OUTLINE_HIGHLIGHTED))
 
 			clickedOnSearchbar := false
 
