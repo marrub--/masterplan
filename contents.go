@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1462,41 +1463,36 @@ func (c *LineContents) Update() {
 }
 
 func (c *LineContents) DrawLines() {
-
 	if c.Task.LineStart != nil {
-
 		outlinesOn := c.Task.Board.Project.OutlineTasks.Checked
 		outlineColor := getThemeColor(GUI_INSIDE)
 		fillColor := getThemeColor(GUI_FONT_COLOR)
-
 		cp := rl.Vector2{c.Task.Rect.X, c.Task.Rect.Y}
 		cp.X += c.Task.Rect.Width / 2
 		cp.Y += c.Task.Rect.Height / 2
-
 		ep := rl.Vector2{c.Task.LineStart.Rect.X, c.Task.LineStart.Rect.Y}
 		ep.X += c.Task.LineStart.Rect.Width / 2
 		ep.Y += c.Task.LineStart.Rect.Height / 2
-
 		if c.Task.LineStart.LineBezier.Checked {
-
 			if outlinesOn {
 				rl.DrawLineBezier(cp, ep, 4, outlineColor)
 			}
-
 			rl.DrawLineBezier(cp, ep, 2, fillColor)
-
 		} else {
-
 			if outlinesOn {
 				rl.DrawLineEx(cp, ep, 4, outlineColor)
 			}
-
 			rl.DrawLineEx(cp, ep, 2, fillColor)
-
 		}
-
+		if c.Task.Selected {
+			txt := strconv.Itoa(int(rl.Vector2Angle(cp, ep))) + "°"
+			sz, _ := TextSize(txt, false)
+			r := rl.Rectangle{cp.X + (ep.X - cp.X) / 2, cp.Y + (ep.Y - cp.Y) / 2, sz.X, sz.Y}
+			DrawRectExpanded(r, 1, getThemeColor(GUI_OUTLINE_HIGHLIGHTED))
+			rl.DrawRectangleRec(r, getThemeColor(GUI_INSIDE))
+			DrawText(rl.Vector2{r.X, r.Y}, txt)
+		}
 	}
-
 }
 
 func (c *LineContents) Draw() {
