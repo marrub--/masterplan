@@ -1793,3 +1793,23 @@ func (task *Task) DistanceTo(other *Task) float32 {
 	return float32(math.Max(math.Max(xd, yd), 0))
 
 }
+
+func (task *Task) CountTotals() (int, int, int, int) {
+	cnt, max, rcnt, rmax := 0, 0, 0, 0
+	for _, t := range task.SubTasks {
+		if t.IsCompletable() {
+			max++
+			rmax++
+			if t.IsComplete() {
+				cnt++
+				rcnt++
+			}
+		}
+		if len(t.SubTasks) > 0 {
+			_, _, rc, rm := t.CountTotals()
+			rcnt += rc
+			rmax += rm
+		}
+	}
+	return cnt, max, rcnt, rmax
+}

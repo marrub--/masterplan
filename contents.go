@@ -254,28 +254,14 @@ func (c *CheckboxContents) Draw() {
 	iconColor := getThemeColor(GUI_FONT_COLOR)
 
 	isParent := len(c.Task.SubTasks) > 0
-	completionCount := 0
-	totalCount := 0
+	completionCount, totalCount, completionRecCount, totalRecCount := c.Task.CountTotals()
 
 	c.bgProgress.Current = 0
 	c.bgProgress.Max = 1
 
 	if isParent {
-
-		for _, t := range c.Task.SubTasks {
-
-			if t.IsComplete() {
-				completionCount++
-			}
-			if t.IsCompletable() {
-				totalCount++
-			}
-
-		}
-
-		c.bgProgress.Current = completionCount
-		c.bgProgress.Max = totalCount
-
+		c.bgProgress.Current = completionRecCount
+		c.bgProgress.Max = totalRecCount
 	} else if c.Task.IsComplete() {
 		c.bgProgress.Current = 1
 	}
@@ -317,7 +303,10 @@ func (c *CheckboxContents) Draw() {
 	c.URLButtons.ScanText(txt)
 
 	if isParent {
-		txt += fmt.Sprintf(" (%d/%d)", completionCount, totalCount)
+		txt += fmt.Sprintf(" →%d/%d", completionCount, totalCount)
+		if totalCount != totalRecCount {
+			txt += fmt.Sprintf(" ↓%d/%d", completionRecCount, totalRecCount)
+		}
 	}
 
 	if c.Task.PrefixText != "" {
