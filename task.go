@@ -99,7 +99,7 @@ type Task struct {
 	LineEndings []*Task
 	LineStart   *Task
 	LineBezier  *Checkbox
-	// ArrowPointingToTask *Task
+	LineHeads   *Checkbox
 
 	TaskAbove       *Task
 	TaskBelow       *Task
@@ -229,6 +229,7 @@ func NewTask(board *Board) *Task {
 		CreationLabel:                NewLabel("Creation time"),
 		CompletionTimeLabel:          NewLabel("Completion time"),
 		LineBezier:                   NewCheckbox(0, 64, 32, 32),
+		LineHeads:                    NewCheckbox(0, 64, 32, 32),
 		LineEndings:                  []*Task{},
 		ContentBank:                  map[int]Contents{},
 	}
@@ -393,6 +394,9 @@ func (task *Task) SetPanel() {
 	row = column.Row()
 	row.Item(NewLabel("Bezier Lines:"), TASK_TYPE_LINE)
 	row.Item(task.LineBezier, TASK_TYPE_LINE)
+	row = column.Row()
+	row.Item(NewLabel("Hide Heads:"), TASK_TYPE_LINE)
+	row.Item(task.LineHeads, TASK_TYPE_LINE)
 
 	row = column.Row()
 	row.Item(NewButton(0, 0, 128, 32, "Shift Up", false), TASK_TYPE_MAP, TASK_TYPE_WHITEBOARD).Name = "shift up"
@@ -451,8 +455,8 @@ func (task *Task) Clone() *Task {
 	copyData.DeadlineMonth = copyData.DeadlineMonth.Clone()
 	copyData.DeadlineYear = task.DeadlineYear.Clone()
 
-	bl := *copyData.LineBezier
-	copyData.LineBezier = &bl
+	copyData.LineBezier = copyData.LineBezier.Clone()
+	copyData.LineHeads = copyData.LineHeads.Clone()
 
 	copyData.ID = copyData.Board.Project.FirstFreeID()
 
@@ -564,6 +568,7 @@ func (task *Task) Serialize() string {
 		// We want to set this in all cases, not just if it's a Line with valid line ending Task pointers;
 		// that way it serializes consistently regardless of how many line endings it has.
 		jsonData, _ = sjson.Set(jsonData, `BezierLines`, task.LineBezier.Checked)
+		jsonData, _ = sjson.Set(jsonData, `LineHeads`,   task.LineHeads.Checked)
 
 		endings := []float32{}
 
@@ -725,6 +730,10 @@ func (task *Task) Deserialize(taskData gjson.Result, taskType int) {
 
 	if hasData(`BezierLines`) {
 		task.LineBezier.Checked = getBool(`BezierLines`)
+	}
+
+	if hasData(`LineHeads`) {
+		task.LineHeads.Checked = getBool(`LineHeads`)
 	}
 
 	if hasData(`LineEndings`) {

@@ -1508,6 +1508,7 @@ func (c *LineContents) Draw() {
 
 	rotation := float32(0)
 
+	var noDraw bool
 	if c.Task.LineStart != nil {
 
 		src.X += 16
@@ -1534,15 +1535,20 @@ func (c *LineContents) Draw() {
 			rotation = angle
 		}
 
+		noDraw = c.Task.LineStart.LineHeads.Checked
+	} else {
+		noDraw = c.Task.LineHeads.Checked
 	}
 
-	if outlinesOn {
+	if outlinesOn && !noDraw {
 		rl.DrawTexturePro(guiIcons, src, dst, rl.Vector2{src.Width / 2, src.Height / 2}, rotation, outlineColor)
 	}
 
 	src.Y += 16
 
-	rl.DrawTexturePro(guiIcons, src, dst, rl.Vector2{src.Width / 2, src.Height / 2}, rotation, fillColor)
+	if !noDraw {
+		rl.DrawTexturePro(guiIcons, src, dst, rl.Vector2{src.Width / 2, src.Height / 2}, rotation, fillColor)
+	}
 
 	c.Task.DisplaySize.X = 16
 	c.Task.DisplaySize.Y = 16
