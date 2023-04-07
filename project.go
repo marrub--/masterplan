@@ -2087,12 +2087,12 @@ func (project *Project) GUI() {
 		} else {
 
 			if project.Modified {
-				label.Text = "\nCurrent project has been changed."
+				label.Text = "Current project has been changed.\nAbandon all changes?"
 			} else if project.AutoSaveInvalid() {
-				label.Text = "\nProject is NOT saved, due to having\nno project file path (not being manually saved)."
+				label.Text = "Project is unsaved.\nAbandon entire project?"
+			} else {
+				label.Text = "Close project?"
 			}
-
-			label.Text += "\nAbandon project?"
 
 			if accept {
 				project.ExecuteDestructiveAction(project.PopupAction, project.PopupArgument)
